@@ -81,7 +81,7 @@ bool ServerTCP::_host()
 }
 
 
-void ServerTCP::_asyncConnectHandler(const boost::system::error_code& error, std::shared_ptr<tcp::socket> peedingClient)
+void ServerTCP::_asyncConnectHandler(const boost::system::error_code& error, std::shared_ptr<NetworkSocket> peedingClient)
 {
 	std::cout << "Resolving peeding connection...\n";
 	if (!error)
@@ -89,49 +89,52 @@ void ServerTCP::_asyncConnectHandler(const boost::system::error_code& error, std
 		if (_clientSockets.size() >= _maxPlayers)
 		{
 			std::cout << "Client Declined\n";
-			peedingClient->shutdown(tcp::socket::shutdown_both);
-			peedingClient->close();
+			peedingClient->socket.shutdown(tcp::socket::shutdown_both);
+			peedingClient->socket.close();
 		}
 		else
 		{
 			std::cout << "Client Connected!\n";
-			_clientSockets[peedingClient] = _responseTimeout;
+			_clientSockets.push_back(peedingClient);
 		}
-		peedingClient = std::make_shared<tcp::socket>(*Network::_service);
-		_acceptor->async_accept(*peedingClient, boost::bind(&ServerTCP::_asyncConnectHandler, *this, boost::asio::placeholders::error, peedingClient));
+		peedingClient = std::make_shared<NetworkSocket>(*Network::_service);
+		_acceptor->async_accept(peedingClient->socket, boost::bind(&ServerTCP::_asyncConnectHandler, *this, boost::asio::placeholders::error, peedingClient));
 	}
 	else
 	{
 		std::cout << "Stopped responding for connection allowance\n";
 	}
 }
-void ServerTCP::_asyncReadHandler(const boost::system::error_code & error, std::shared_ptr<tcp::socket> sendingSocket, std::shared_ptr<std::array<char, 128>> str, std::size_t len, std::shared_ptr<boost::asio::deadline_timer> timeout)
+void ServerTCP::_asyncReadHandler(const boost::system::error_code & error, std::shared_ptr<NetworkSocket> sendingSocket, std::shared_ptr<std::array<char, 128>> str, std::size_t len, std::shared_ptr<boost::asio::deadline_timer> timeout)
 {
+	auto it = _clientSockets.begin();
+	for (; it != _clientSockets.end() && *it != sendingSocket; ++it);
+	auto cls = [&it, &sendingSocket, this]()->void 
+	{
+		sendingSocket->socket.shutdown(tcp::socket::shutdown_both);
+		sendingSocket->socket.close();
+		_clientSockets.erase(it);
+	};
+
 	if (error == boost::asio::error::eof)
 	{
 		std::cout << "Client has disconnected\n";
-		sendingSocket->shutdown(tcp::socket::shutdown_both);
-		sendingSocket->close();
-		_clientSockets.erase(sendingSocket);
+		cls();
 	}
 	else if (error == boost::asio::error::timed_out)
 	{
-		std::cout << "Connection timeout in: " << _clientSockets[sendingSocket] << "\n";
-		--_clientSockets[sendingSocket];
-		if (_clientSockets[sendingSocket] <= 0)
+		std::cout << "Connection timeout in: " << sendingSocket->timeout << "\n";
+		--sendingSocket->timeout;
+		if (sendingSocket->timeout <= 0)
 		{
 			std::cout << "Connection timeout; Peer stopped responding\n";
-			sendingSocket->shutdown(tcp::socket::shutdown_both);
-			sendingSocket->close();
-			_clientSockets.erase(sendingSocket);
+			cls();
 		}
 	}
 	else if (error == boost::asio::error::connection_reset)
 	{
 		std::cout << "Peer disconnected\n";
-		sendingSocket->shutdown(tcp::socket::shutdown_both);
-		sendingSocket->close();
-		_clientSockets.erase(sendingSocket);
+		cls();
 	}
 	else if (error)
 	{
@@ -143,11 +146,11 @@ void ServerTCP::_asyncReadHandler(const boost::system::error_code & error, std::
 	}
 	else
 	{
-		_clientSockets[sendingSocket] = _responseTimeout;
+		sendingSocket->timeout = _responseTimeout;
 		std::cout << "Message received: " << std::string(str->data(), len) << std::endl;
 	}
 	timeout->cancel();
-	_isReading = false;
+	sendingSocket->timeout = false;
 }
 
 
@@ -156,8 +159,8 @@ bool ServerTCP::_disconnect()
 	std::cout << "Disconnecting...\n";
 	for (auto c : _clientSockets)
 	{
-		c.first->shutdown(tcp::socket::shutdown_both);
-		c.first->close();
+		c->socket.shutdown(tcp::socket::shutdown_both);
+		c->socket.close();
 	}
 	_clientSockets.erase(_clientSockets.begin(), _clientSockets.end());
 	return true;
@@ -165,7 +168,7 @@ bool ServerTCP::_disconnect()
 
 
 
-void ServerTCP::_asyncSendHandler(const boost::system::error_code& error, std::size_t len, std::shared_ptr<tcp::socket> sendingSocket)
+void ServerTCP::_asyncSendHandler(const boost::system::error_code& error, std::size_t len, std::shared_ptr<NetworkSocket> sendingSocket)
 {
 	if (error)
 	{
@@ -174,10 +177,10 @@ void ServerTCP::_asyncSendHandler(const boost::system::error_code& error, std::s
 
 		for (auto s = _clientSockets.begin(); s != _clientSockets.end(); ++s)
 		{
-			if (s->first == sendingSocket)
+			if (*s == sendingSocket)
 			{
-				sendingSocket->shutdown(tcp::socket::shutdown_both);
-				sendingSocket->close();
+				sendingSocket->socket.shutdown(tcp::socket::shutdown_both);
+				sendingSocket->socket.close();
 				_clientSockets.erase(s);
 				Network::Connectable(true);
 				break;
@@ -208,8 +211,8 @@ bool ServerTCP::_connectable(bool allow)
 		_acceptor->open(ep.protocol());
 		_acceptor->bind(ep);
 		_acceptor->listen(1);
-		std::shared_ptr<tcp::socket> _serverSocket = std::make_shared<tcp::socket>(*Network::_service);
-		_acceptor->async_accept(*_serverSocket, boost::bind(&ServerTCP::_asyncConnectHandler, *this, boost::asio::placeholders::error, _serverSocket));
+		std::shared_ptr<NetworkSocket> _serverSocket = std::make_shared<NetworkSocket>(*Network::_service);
+		_acceptor->async_accept(_serverSocket->socket, boost::bind(&ServerTCP::_asyncConnectHandler, *this, boost::asio::placeholders::error, _serverSocket));
 		std::cout << "Connections allowed\n";
 		return _acceptor.get() ? true : false;
 	}
@@ -263,7 +266,7 @@ bool ClientTCP::_update()
 }
 
 
-void ClientTCP::_asyncReadHandler(const boost::system::error_code & error, std::shared_ptr<tcp::socket> sendingSocket, std::shared_ptr<std::array<char, 128>> str, std::size_t len, std::shared_ptr<boost::asio::deadline_timer> timeout)
+void ClientTCP::_asyncReadHandler(const boost::system::error_code & error, std::shared_ptr<NetworkSocket> sendingSocket, std::shared_ptr<std::array<char, 128>> str, std::size_t len, std::shared_ptr<boost::asio::deadline_timer> timeout)
 {
 	if (error == boost::asio::error::eof)
 	{
@@ -272,9 +275,9 @@ void ClientTCP::_asyncReadHandler(const boost::system::error_code & error, std::
 	}
 	else if (error == boost::asio::error::timed_out)
 	{
-		std::cout << "Connection timeout in: " << _currentResponseTimeout << "\n";
-		--_currentResponseTimeout;
-		if (_currentResponseTimeout <= 0)
+		std::cout << "Connection timeout in: " << sendingSocket->timeout << "\n";
+		--sendingSocket->timeout;
+		if (sendingSocket->timeout <= 0)
 		{
 			std::cout << "Connection timeout; Server stopped responding\n";
 			Network::Disconnect();
@@ -295,11 +298,11 @@ void ClientTCP::_asyncReadHandler(const boost::system::error_code & error, std::
 	}
 	else
 	{
-		_currentResponseTimeout = _responseTimeout;
+		sendingSocket->timeout = _responseTimeout;
 		std::cout << "Message received: " << std::string(str->data(), len) << std::endl;
 	}
 	timeout->cancel();
-	_isReading = false;
+	sendingSocket->isReading = false;
 }
 
 void ClientTCP::_asyncResolveHandler(const boost::system::error_code& error, tcp::resolver::iterator ep, std::shared_ptr<tcp::resolver> resolver)
@@ -310,7 +313,7 @@ void ClientTCP::_asyncResolveHandler(const boost::system::error_code& error, tcp
 	}
 	else
 	{
-		boost::asio::async_connect(*_serverSocket, ep, boost::bind(&ClientTCP::_asyncConnectHandler, *this, boost::asio::placeholders::error, ep));
+		boost::asio::async_connect(_serverSocket->socket, ep, boost::bind(&ClientTCP::_asyncConnectHandler, *this, boost::asio::placeholders::error, ep));
 	}
 }
 void ClientTCP::_asyncConnectHandler(const boost::system::error_code& error, tcp::resolver::iterator ep)
@@ -326,13 +329,13 @@ void ClientTCP::_asyncConnectHandler(const boost::system::error_code& error, tcp
 		//_currentResponseTimeout = _responseTimeout;
 	}
 }
-void ClientTCP::_asyncSendHandler(const boost::system::error_code & error, std::size_t len, std::shared_ptr<boost::asio::ip::tcp::socket> sendingSocket)
+void ClientTCP::_asyncSendHandler(const boost::system::error_code & error, std::size_t len, std::shared_ptr<NetworkSocket> sendingSocket)
 {
 }
 bool ClientTCP::_join(std::string ip)
 {
 	std::shared_ptr<tcp::resolver> resolver = std::make_shared<tcp::resolver>(*Network::_service);
-	_serverSocket = std::make_shared<tcp::socket>(*Network::_service);
+	_serverSocket = std::make_shared<NetworkSocket>(*Network::_service);
 	std::cout << "Trying to connect to [" << ip << "]...\n";
 	resolver->async_resolve(tcp::resolver::query(ip, std::to_string(Network::defaultPort)), boost::bind(&ClientTCP::_asyncResolveHandler, *this, boost::asio::placeholders::error, boost::asio::placeholders::iterator, resolver));
 	return true;
@@ -342,7 +345,7 @@ bool ClientTCP::_join(std::string ip)
 bool ClientTCP::_disconnect()
 {
 	std::cout << "Disconnecting...\n";
-	_serverSocket->shutdown(tcp::socket::shutdown_both);
-	_serverSocket->close();
+	_serverSocket->socket.shutdown(tcp::socket::shutdown_both);
+	_serverSocket->socket.close();
 	return true;
 }
