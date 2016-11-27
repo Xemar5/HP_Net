@@ -114,14 +114,28 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ClientTCP.h" />
+    <ClInclude Include="ClientUDP.h" />
     <ClInclude Include="Network.h" />
+    <ClInclude Include="NetworkID.h" />
+    <ClInclude Include="NetworkSocket.h" />
     <ClInclude Include="NetworkTCP.h" />
     <ClInclude Include="NetworkUDP.h" />
+    <ClInclude Include="RPC.h" />
+    <ClInclude Include="ServerTCP.h" />
+    <ClInclude Include="ServerUDP.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ClientTCP.cpp" />
+    <ClCompile Include="ClientUDP.cpp" />
     <ClCompile Include="Network.cpp" />
+    <ClCompile Include="NetworkID.cpp" />
+    <ClCompile Include="NetworkSocket.cpp" />
     <ClCompile Include="NetworkTCP.cpp" />
     <ClCompile Include="NetworkUDP.cpp" />
+    <ClCompile Include="RPC.cpp" />
+    <ClCompile Include="ServerTCP.cpp" />
+    <ClCompile Include="ServerUDP.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

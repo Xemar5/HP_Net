@@ -1,93 +1,42 @@
 #pragma once
 #include <iostream>
+#include <functional>
 #include <map>
 #include <boost\asio.hpp>
 
-class NetworkSocket
-{
-public:
-	NetworkSocket(boost::asio::io_service& service) : socket(service) {}
 
-	boost::asio::ip::tcp::socket socket;
-	bool isReading = false;
-	unsigned timeout = 10;
-};
+#include "NetworkSocket.h"
+
+enum RPC_Receiver;
 
 class NetworkTCP
 {
 public:
 protected:
 	virtual bool _update();
-
-
-	void _asyncReadTimeoutHandler(const boost::system::error_code & error, std::shared_ptr<boost::asio::ip::tcp::socket> senderSocket);
-	virtual void _asyncSendHandler(const boost::system::error_code& error, std::size_t len, std::shared_ptr<NetworkSocket> sendingSocket) = 0;
-	virtual void _asyncReadHandler(
-		const boost::system::error_code& error,
-		std::shared_ptr<NetworkSocket> sendingSocket,
-		std::shared_ptr<std::array<char, 128>> str,
-		std::size_t len,
-		std::shared_ptr<boost::asio::deadline_timer> timeout) = 0;
-
-	const int _responseTimeout = 10;
-
-	bool _send();
-	bool _recv();
-
-
 	virtual bool _disconnect() = 0;
 
-	friend class Network;
-};
+	bool _send(std::function<void(const boost::system::error_code&, std::size_t, std::shared_ptr<NetworkSocket>)> handler);
+	bool _recv(std::shared_ptr<NetworkSocket> reciveFrom, std::function<void(const boost::system::error_code&)> errorHandler);
 
-class ServerTCP : public NetworkTCP
-{
-public:
+	const int _responseTimeout = 10;
+	static constexpr unsigned _packetLength = 128;
+	std::vector<std::pair<std::vector<std::shared_ptr<NetworkSocket>>, std::string>> _peedingMessages;
+	virtual bool _storeMessage(std::shared_ptr<NetworkSocket>sender, std::string str, RPC_Receiver reciever) = 0;
+	//std::vector<std::string> _receivedMessages;
 
-protected:
-	bool _update() override;
-	bool _host();
-
-	void _asyncConnectHandler(const boost::system::error_code& error, std::shared_ptr<NetworkSocket> peedingClient);
-	void _asyncSendHandler(const boost::system::error_code& error, std::size_t len, std::shared_ptr<NetworkSocket> sendingSocket) override;
+	virtual void _asyncSendHandler(const boost::system::error_code& error, std::size_t len, std::shared_ptr<NetworkSocket> sendingSocket) = 0;
+	void _asyncReadTimeoutHandler(const boost::system::error_code & error, std::shared_ptr<NetworkSocket> senderSocket);
+	virtual void _asyncReadErrorHandler(const boost::system::error_code & error, std::shared_ptr<NetworkSocket> sendingSocket) = 0;
 	void _asyncReadHandler(
 		const boost::system::error_code& error,
 		std::shared_ptr<NetworkSocket> sendingSocket,
-		std::shared_ptr<std::array<char, 128>> str,
+		std::shared_ptr<std::array<char, NetworkTCP::_packetLength>> str,
 		std::size_t len,
-		std::shared_ptr<boost::asio::deadline_timer> timeout) override;
-
-	std::shared_ptr<boost::asio::ip::tcp::acceptor> _acceptor = nullptr;
-	std::vector<std::shared_ptr<NetworkSocket>> _clientSockets;
-
-	unsigned _maxPlayers = -1;
-
-	bool _connectable(bool value);
-	bool _disconnect() override;
+		std::shared_ptr<boost::asio::deadline_timer> timeout,
+		std::function<void(const boost::system::error_code&)> errorHandler);
 
 	friend class Network;
-};
-
-class ClientTCP : public NetworkTCP
-{
-public:
-protected:
-	bool _update() override;
-	bool _join(std::string ip);
-
-	void _asyncResolveHandler(const boost::system::error_code& error, boost::asio::ip::tcp::resolver::iterator ep, std::shared_ptr<boost::asio::ip::tcp::resolver> resolver);
-	void _asyncConnectHandler(const boost::system::error_code& error, boost::asio::ip::tcp::resolver::iterator ep);
-	void _asyncSendHandler(const boost::system::error_code& error, std::size_t len, std::shared_ptr<NetworkSocket> sendingSocket) override;
-	void _asyncReadHandler(
-		const boost::system::error_code& error,
-		std::shared_ptr<NetworkSocket> sendingSocket,
-		std::shared_ptr<std::array<char, 128>> str,
-		std::size_t len,
-		std::shared_ptr<boost::asio::deadline_timer> timeout) override;
-
-	std::shared_ptr<NetworkSocket> _serverSocket = nullptr;
-
-	bool _disconnect() override;
-	
-	friend class Network;
+	friend class ClientTCP;
+	friend class ServerTCP;
 };

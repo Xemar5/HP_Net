@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\TCP">
+      <UniqueIdentifier>{b0b9ff61-2a6d-4f41-8d34-886c97f98fea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\UDP">
+      <UniqueIdentifier>{4bb4fee1-f7dc-4b01-b223-15329366d696}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -21,25 +27,67 @@
     <ClCompile Include="Source.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="NetworkTCP.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="NetworkUDP.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Network.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ClientTCP.cpp">
+      <Filter>Source Files\TCP</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkTCP.cpp">
+      <Filter>Source Files\TCP</Filter>
+    </ClCompile>
+    <ClCompile Include="ServerTCP.cpp">
+      <Filter>Source Files\TCP</Filter>
+    </ClCompile>
+    <ClCompile Include="ClientUDP.cpp">
+      <Filter>Source Files\UDP</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkUDP.cpp">
+      <Filter>Source Files\UDP</Filter>
+    </ClCompile>
+    <ClCompile Include="ServerUDP.cpp">
+      <Filter>Source Files\UDP</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkSocket.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RPC.cpp">
+      <Filter>Source Files\TCP</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkID.cpp">
+      <Filter>Source Files\UDP</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="NetworkTCP.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="NetworkUDP.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="Network.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ClientTCP.h">
+      <Filter>Source Files\TCP</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkTCP.h">
+      <Filter>Source Files\TCP</Filter>
+    </ClInclude>
+    <ClInclude Include="ServerTCP.h">
+      <Filter>Source Files\TCP</Filter>
+    </ClInclude>
+    <ClInclude Include="ClientUDP.h">
+      <Filter>Source Files\UDP</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkUDP.h">
+      <Filter>Source Files\UDP</Filter>
+    </ClInclude>
+    <ClInclude Include="ServerUDP.h">
+      <Filter>Source Files\UDP</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkSocket.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RPC.h">
+      <Filter>Source Files\TCP</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkID.h">
+      <Filter>Source Files\UDP</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
